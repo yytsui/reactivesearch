@@ -19,6 +19,9 @@ const SearchFilters = () => (
 				innerClass={{
 					list: 'list',
 				}}
+				react={{
+					and: ['rating', 'vehicle', 'price'],
+				}}
 			/>
 		</FlexChild>
 		<FlexChild card margin="10px">
@@ -44,6 +47,9 @@ const SearchFilters = () => (
 				showSearch={false}
 				innerClass={{
 					list: 'list',
+				}}
+				react={{
+					and: ['brand', 'rating', 'price'],
 				}}
 			/>
 		</FlexChild>
