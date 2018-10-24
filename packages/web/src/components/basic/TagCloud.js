@@ -214,11 +214,13 @@ class TagCloud extends Component {
 			label: props.filterLabel,
 			showFilter: props.showFilter,
 			URLParams: props.URLParams,
+			componentType: 'TAGCLOUD',
 		});
 	};
 
 	static generateQueryOptions(props) {
 		const queryOptions = getQueryOptions(props);
+		queryOptions.size = 0;
 		queryOptions.aggs = {
 			[props.dataField]: {
 				terms: {

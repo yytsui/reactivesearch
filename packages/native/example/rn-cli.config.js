@@ -14,27 +14,26 @@ module.exports = {
 		return [
 			'react-native',
 			'react',
-			// 'expo',
 			'redux',
 			'expo',
 			'react-redux',
 			'redux-thunk',
 			'native-base',
 			'appbase-js',
+			'@babel/polyfill',
 			'@ptomasroos/react-native-multi-slider',
 			'react-native-calendars',
 			'xdate',
 			'prop-types',
 			'hoist-non-react-statics',
+			'@babel/polyfill',
 		];
 	},
 	getBlacklistRE() {
 		return blacklist([
 			new RegExp(`^${escape(path.resolve(__dirname, '..', 'node_modules'))}\\/.*$`),
-			new RegExp(`^${escape(path.resolve(__dirname, '../examples'))}\\/.*\\/node_modules\\/.*$`),
-			new RegExp(`^${escape(path.resolve(__dirname, '../../playground', 'node_modules'))}\\/.*$`),
-			new RegExp(`^${escape(path.resolve(__dirname, '../../reactivecore', 'node_modules'))}\\/.*$`),
-			new RegExp(`^${escape(path.resolve(__dirname, '../../web', 'node_modules'))}\\/.*$`),
+			new RegExp(`^${escape(path.resolve(__dirname, '../..'))}\\/((?!native).)*\\/node_modules\\/.*$`),
+			new RegExp(`^${escape(path.resolve(__dirname, '../../maps-native'))}\\/.*\\/node_modules\\/.*$`),
 		]);
 	},
 };

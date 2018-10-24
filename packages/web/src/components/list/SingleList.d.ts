@@ -13,6 +13,7 @@ export interface SingleList extends CommonProps {
 	placeholder?: string;
 	react?: types.react;
 	renderListItem?: (...args: any[]) => any;
+	transformData?: (...args: any[]) => any;
 	selectAllLabel?: string;
 	showCount?: boolean;
 	showFilter?: boolean;
@@ -24,6 +25,8 @@ export interface SingleList extends CommonProps {
 	title?: types.title;
 	showMissing?: boolean;
 	missingLabel?: string;
+	showLoadMore?: boolean;
+	loadMoreLabel?: types.title;
 }
 
 declare const SingleList: React.ComponentType<SingleList>;

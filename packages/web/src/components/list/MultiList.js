@@ -7,13 +7,13 @@ import {
 	updateQuery,
 	setQueryOptions,
 	setQueryListener,
+	loadMore,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
 	getQueryOptions,
 	pushToAndClause,
 	checkValueChange,
-	getAggsOrder,
 	checkPropChange,
 	checkSomePropChange,
 	getClassName,
@@ -21,8 +21,10 @@ import {
 
 import types from '@appbaseio/reactivecore/lib/utils/types';
 
+import { getAggsQuery, getCompositeAggsQuery } from './utils';
 import Title from '../../styles/Title';
 import Input from '../../styles/Input';
+import Button, { loadMoreContainer } from '../../styles/Button';
 import Container from '../../styles/Container';
 import { UL, Checkbox } from '../../styles/FormControlList';
 import { connect } from '../../utils';
@@ -34,9 +36,14 @@ class MultiList extends Component {
 		this.state = {
 			currentValue: {},
 			options: (props.options && props.options[props.dataField])
-				? props.options[props.dataField].buckets
+				? this.getOptions(
+					props.options[props.dataField].buckets,
+					props,
+				)
 				: [],
 			searchTerm: '',
+			after: {},	// for composite aggs
+			isLastBucket: false,
 		};
 		this.locked = false;
 		this.internalComponent = `${props.componentId}__internal`;
@@ -67,11 +74,28 @@ class MultiList extends Component {
 			this.props.options,
 			nextProps.options,
 			() => {
-				this.setState({
-					options: nextProps.options[nextProps.dataField]
-						? nextProps.options[nextProps.dataField].buckets
-						: [],
-				});
+				const { showLoadMore, dataField } = nextProps;
+				if (showLoadMore) {
+					const { buckets } = nextProps.options[dataField];
+					const after = nextProps.options[dataField].after_key;
+					// detect the last bucket by checking if the after key is absent
+					const isLastBucket = !after;
+					this.setState(state => ({
+						...state,
+						after: after ? { after } : state.after,
+						isLastBucket,
+						options: this.getOptions(buckets, nextProps),
+					}));
+				} else {
+					this.setState({
+						options: nextProps.options[nextProps.dataField]
+							? this.getOptions(
+								nextProps.options[nextProps.dataField].buckets,
+								nextProps,
+							)
+							: [],
+					});
+				}
 			},
 		);
 		checkSomePropChange(
@@ -119,6 +143,17 @@ class MultiList extends Component {
 		} else {
 			props.watchComponent(props.componentId, { and: this.internalComponent });
 		}
+	};
+
+	getOptions = (buckets, props) => {
+		if (props.showLoadMore) {
+			return buckets.map(bucket => ({
+				key: bucket.key[props.dataField],
+				doc_count: bucket.doc_count,
+			}));
+		}
+
+		return buckets;
 	};
 
 	static defaultQuery = (value, props) => {
@@ -273,27 +308,27 @@ class MultiList extends Component {
 			label: props.filterLabel,
 			showFilter: props.showFilter,
 			URLParams: props.URLParams,
+			componentType: 'MULTILIST',
 		});
 	};
 
-	static generateQueryOptions(props) {
+	static generateQueryOptions(props, after) {
 		const queryOptions = getQueryOptions(props);
-		queryOptions.aggs = {
-			[props.dataField]: {
-				terms: {
-					field: props.dataField,
-					size: props.size,
-					order: getAggsOrder(props.sortBy || 'count'),
-					...(props.showMissing ? { missing: props.missingLabel } : {}),
-				},
-			},
-		};
-
-		return queryOptions;
+		return props.showLoadMore
+			? getCompositeAggsQuery(queryOptions, props, after)
+			: getAggsQuery(queryOptions, props);
 	}
 
-	updateQueryOptions = (props) => {
-		const queryOptions = MultiList.generateQueryOptions(props);
+	updateQueryOptions = (props, addAfterKey = false) => {
+		// when using composite aggs flush the current options for a fresh query
+		if (props.showLoadMore && !addAfterKey) {
+			this.setState({
+				options: [],
+			});
+		}
+		// for a new query due to other changes don't append after to get fresh results
+		const queryOptions = MultiList
+			.generateQueryOptions(props, addAfterKey ? this.state.after : {});
 		props.setQueryOptions(this.internalComponent, queryOptions);
 	};
 
@@ -303,6 +338,11 @@ class MultiList extends Component {
 			searchTerm: value,
 		});
 	};
+
+	handleLoadMore = () => {
+		const queryOptions = MultiList.generateQueryOptions(this.props, this.state.after);
+		this.props.loadMore(this.props.componentId, queryOptions);
+	}
 
 	renderSearch = () => {
 		if (this.props.showSearch) {
@@ -325,10 +365,19 @@ class MultiList extends Component {
 	};
 
 	render() {
-		const { selectAllLabel, renderListItem } = this.props;
+		const {
+			selectAllLabel, renderListItem, showLoadMore, loadMoreLabel,
+		} = this.props;
+		const { isLastBucket } = this.state;
 
 		if (this.state.options.length === 0) {
 			return null;
+		}
+
+		let { options: itemsToRender } = this.state;
+
+		if (this.props.transformData) {
+			itemsToRender = this.props.transformData(itemsToRender);
 		}
 
 		return (
@@ -360,7 +409,7 @@ class MultiList extends Component {
 							: null
 					}
 					{
-						this.state.options
+						itemsToRender
 							.filter((item) => {
 								if (String(item.key).length) {
 									if (this.props.showSearch && this.state.searchTerm) {
@@ -412,6 +461,13 @@ class MultiList extends Component {
 								</li>
 							))
 					}
+					{
+						showLoadMore && !isLastBucket && (
+							<div css={loadMoreContainer}>
+								<Button onClick={this.handleLoadMore}>{loadMoreLabel}</Button>
+							</div>
+						)
+					}
 				</UL>
 			</Container>
 		);
@@ -423,6 +479,7 @@ MultiList.propTypes = {
 	removeComponent: types.funcRequired,
 	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
+	loadMore: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	options: types.options,
@@ -442,6 +499,7 @@ MultiList.propTypes = {
 	queryFormat: types.queryFormatSearch,
 	react: types.react,
 	renderListItem: types.func,
+	transformData: types.func,
 	selectAllLabel: types.string,
 	showCheckbox: types.boolRequired,
 	showCount: types.bool,
@@ -454,6 +512,8 @@ MultiList.propTypes = {
 	URLParams: types.bool,
 	showMissing: types.bool,
 	missingLabel: types.string,
+	showLoadMore: types.bool,
+	loadMoreLabel: types.title,
 };
 
 MultiList.defaultProps = {
@@ -469,6 +529,8 @@ MultiList.defaultProps = {
 	URLParams: false,
 	showMissing: false,
 	missingLabel: 'N/A',
+	showLoadMore: false,
+	loadMoreLabel: 'Load More',
 };
 
 const mapStateToProps = (state, props) => ({
@@ -482,6 +544,8 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
+	loadMore: (component, aggsQuery) =>
+		dispatch(loadMore(component, aggsQuery, true, true)),
 	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
 		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),

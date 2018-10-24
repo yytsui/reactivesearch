@@ -1,3 +1,4 @@
+import '@babel/polyfill';
 import ReactiveBase from './components/basic/ReactiveBase';
 import TextField from './components/basic/TextField';
 import DataController from './components/basic/DataController';
@@ -17,8 +18,6 @@ import RangeSlider from './components/range/RangeSlider';
 import DataSearch from './components/search/DataSearch';
 
 import ReactiveList from './components/result/ReactiveList';
-
-import ReactiveMap from './components/maps/ReactiveMap';
 
 export {
 	// basic
@@ -46,7 +45,4 @@ export {
 
 	// result
 	ReactiveList,
-
-	// maps
-	ReactiveMap,
 };
